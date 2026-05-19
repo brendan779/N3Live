@@ -66,13 +66,30 @@ message type, ~1 Hz:
 This is the heartbeat. New message types appearing once the air unit is live
 (and during a phone session) are the ones to chase for video control.
 
-### Next
+### Air-unit-live capture — no change
 
-1. Re-capture IF4 **with the air-unit feed live** and diff against this
-   baseline to spot video-related DUML.
-2. **Reference capture:** record an Android + DJI Fly session with the N3 to
-   observe the exact DUML start sequence DJI Fly issues.
-3. Derive/replay the start command; confirm a video channel (IF3/5/6/7) wakes.
+Re-ran the probe and DUML capture with the air-unit feed live. Result:
+**identical to idle.** IF3/5/6/7 stay dormant; IF4 emits the same `00:82`
+heartbeat with the same payload. The goggles do not react to having a feed.
+
+**Conclusion:** the goggles passively wait for a host (DJI Fly) to drive
+them. The `00:82` heartbeat (`0xBC -> 0x2A`) is the goggles announcing
+themselves to the app address `0x2A` and waiting for commands. No command →
+no video. There is no handshake to passively observe — the goggles never
+initiate one.
+
+### The gate: discovering DJI Fly's command sequence
+
+This is now the critical unknown. Candidate routes:
+
+1. **USB capture of an Android + DJI Fly session** — the gold standard.
+   Needs a rootable Android device (`usbmon`) or an inline USB hardware
+   sniffer. Yields the exact DUML commands.
+2. **Decompile the DJI Fly APK** — the command sequence is in the code.
+   No hardware needed and deterministic, but DJI Fly is large and obfuscated.
+3. **Blind DUML poking from the Mac** — send plausible DUML commands as
+   device `0x2A`, watch IF4 responses and IF3/5/6/7 for video. No hardware,
+   can start immediately, but a large search space.
 
 References for DUML command sets: `fvantienen/dji_rev`,
 `samuelsadok/dji_protocol`, `o-gs/dji-firmware-tools`.
