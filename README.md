@@ -48,7 +48,7 @@ effort** — not a wiring-up of an existing library.
 
 | Phase | Goal |
 |-------|------|
-| **P0 — Recon** | Connect the N3 in OTG mode; dump `system_profiler SPUSBDataType` / `ioreg` to capture VID/PID, interface classes and endpoints. This decides the whole architecture. |
+| **P0 — Recon** | With a live feed running (drone/air unit on), connect the N3 in OTG mode; dump `system_profiler SPUSBDataType` / `ioreg` to capture VID/PID, interface classes and endpoints. Repeat idle (no air unit) to diff. This decides the whole architecture. |
 | **P1 — Capture** | Record USB traffic between a phone + DJI Fly + N3; identify the handshake and the video port/codec (expected H.264/H.265 + DJI's "DUML" control protocol). |
 | **P2 — Client** | Reimplement the handshake and stream pull over libusb. |
 | **P3 — Decode + display** | Feed the bitstream into VideoToolbox → an `AVSampleBufferDisplayLayer` window. |
@@ -57,8 +57,18 @@ effort** — not a wiring-up of an existing library.
 ## Hardware / tooling needed
 
 - DJI Goggles N3 + a USB-C ↔ USB-C data cable.
+- **The drone / O4 air unit, powered on and bound to the goggles.** The
+  goggles only enable their video-out (broadcast) mode while they are
+  actually receiving a feed — with no air unit linked there is nothing to
+  stream, so all recon and testing must be done with the full FPV system
+  live.
 - An Android phone with DJI Fly (for the P1 reference capture).
 - Likely a USB protocol analyser or a Linux box with `usbmon` for the capture.
+
+> **Test rig.** Every capture session = Goggles N3 + drone/air unit powered
+> and linked (live feed visible in the goggles), *then* plug into the Mac.
+> The goggles' exposed USB interfaces and endpoints may differ between idle
+> and broadcasting, so P0 should be run both ways for comparison.
 
 ## Prior art / references
 
