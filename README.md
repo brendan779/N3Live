@@ -46,13 +46,16 @@ effort** — not a wiring-up of an existing library.
 
 ## Plan
 
-| Phase | Goal |
-|-------|------|
-| **P0 — Recon** | With a live feed running (drone/air unit on), connect the N3 in OTG mode; dump `system_profiler SPUSBDataType` / `ioreg` to capture VID/PID, interface classes and endpoints. Repeat idle (no air unit) to diff. This decides the whole architecture. |
-| **P1 — Capture** | Record USB traffic between a phone + DJI Fly + N3; identify the handshake and the video port/codec (expected H.264/H.265 + DJI's "DUML" control protocol). |
-| **P2 — Client** | Reimplement the handshake and stream pull over libusb. |
-| **P3 — Decode + display** | Feed the bitstream into VideoToolbox → an `AVSampleBufferDisplayLayer` window. |
-| **P4 — Polish** | Native SwiftUI macOS app; optional Skyline live-backdrop integration. |
+| Phase | Goal | Status |
+|-------|------|--------|
+| **P0 — USB enumeration** | Dump the N3's descriptor: VID/PID, interfaces, endpoints. | ✅ done |
+| **P1 — Vendor probe** | Find which USB interface carries control vs. video. | ✅ done |
+| **P2 — DUML control** | Speak DJI's DUML protocol on the control interface; find the video-start command (via an Android + DJI Fly reference capture). | ⏳ next |
+| **P3 — Video client** | Issue the start command, claim the video interface, pull the H.264/H.265 stream over libusb. | |
+| **P4 — Decode + display** | Feed the bitstream into VideoToolbox → an `AVSampleBufferDisplayLayer` window. | |
+| **P5 — Polish** | Native SwiftUI macOS app; optional Skyline live-backdrop integration. | |
+
+See [`recon/FINDINGS.md`](recon/FINDINGS.md) for the detailed lab notebook.
 
 ## Hardware / tooling needed
 
@@ -85,5 +88,11 @@ ships no DJI code or firmware.
 
 ## Project status
 
-Nothing is implemented yet. Phase P0 (recon) is the next action and needs the
-physical goggles connected to the Mac.
+**Recon done (P0–P1).** The N3 is a composite USB device (VID `0x2CA3`, PID
+`0x0020`); its control channel is **DUML over a vendor-specific bulk
+interface** (IF4), and the video rides a separate, currently-dormant vendor
+interface that a DUML command must switch on. The RNDIS network path is a
+dead end on macOS.
+
+**Next (P2):** implement DUML and find the video-start command — which needs
+a USB traffic capture of an Android device running DJI Fly talking to the N3.

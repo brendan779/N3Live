@@ -1,0 +1,47 @@
+DJI Goggles N3 — USB descriptor (P0 recon capture)
+Captured on macOS (Apple Silicon) with the goggles connected and a live
+air-unit video feed running.
+
+== DEVICE ==
+  VID:PID     0x2CA3:0x0020
+  bcdDevice   0x0504
+  deviceClass 0x00
+  manufacturer DJI
+  product     Goggles_N3 -8HAXMC400140UT
+  serial      987654321ABCDEF
+
+== CONFIGURATION 1 (interfaces: 8) ==
+  Interface 0 alt 0 — Wireless (RNDIS control) (class 0xE0 sub 0x01 proto 0x03, 1 endpoints)
+      EP 0x82 IN  interrupt   maxPacket=8     interval=9
+  Interface 1 alt 0 — CDC-Data (class 0x0A sub 0x00 proto 0x00, 2 endpoints)
+      EP 0x81 IN  bulk        maxPacket=512   interval=0
+      EP 0x01 OUT bulk        maxPacket=512   interval=0
+  Interface 2 alt 0 — Mass Storage (class 0x08 sub 0x06 proto 0x50, 2 endpoints)
+      EP 0x83 IN  bulk        maxPacket=512   interval=0
+      EP 0x02 OUT bulk        maxPacket=512   interval=1
+  Interface 3 alt 0 — Vendor-Specific (class 0xFF sub 0x43 proto 0x01, 2 endpoints)
+      EP 0x03 OUT bulk        maxPacket=512   interval=0
+      EP 0x84 IN  bulk        maxPacket=512   interval=0
+  Interface 4 alt 0 — Vendor-Specific (class 0xFF sub 0x43 proto 0x01, 2 endpoints)
+      EP 0x04 OUT bulk        maxPacket=512   interval=0
+      EP 0x85 IN  bulk        maxPacket=512   interval=0
+  Interface 5 alt 0 — Vendor-Specific (class 0xFF sub 0x43 proto 0x01, 2 endpoints)
+      EP 0x05 OUT bulk        maxPacket=512   interval=0
+      EP 0x86 IN  bulk        maxPacket=512   interval=0
+  Interface 6 alt 0 — Vendor-Specific (class 0xFF sub 0x43 proto 0x01, 2 endpoints)
+      EP 0x06 OUT bulk        maxPacket=512   interval=0
+      EP 0x87 IN  bulk        maxPacket=512   interval=0
+  Interface 7 alt 0 — Vendor-Specific (class 0xFF sub 0x43 proto 0x01, 2 endpoints)
+      EP 0x07 OUT bulk        maxPacket=512   interval=0
+      EP 0x88 IN  bulk        maxPacket=512   interval=0
+
+== NOTES ==
+- RNDIS network function (IF0+IF1) → macOS binds it as en3/en4 but reports
+  "media inactive" and never completes DHCP. The macOS RNDIS stack does not
+  bring the link up on its own.
+- IF2 mass storage → the goggles' storage mounts as a disk.
+- IF3–IF7: five DJI vendor-specific interfaces (0xFF/0x43/0x01), each a
+  bulk OUT + bulk IN pair, 512-byte packets. No macOS kernel driver is bound
+  to these, so they are claimable directly via libusb. One of these almost
+  certainly carries the live H.264/H.265 video; the others are likely
+  control (DUML), telemetry/OSD, audio and a mobile/MFI channel.
