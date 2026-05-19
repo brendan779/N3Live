@@ -93,3 +93,56 @@ This is now the critical unknown. Candidate routes:
 
 References for DUML command sets: `fvantienen/dji_rev`,
 `samuelsadok/dji_protocol`, `o-gs/dji-firmware-tools`.
+
+## P3 — APK reverse-engineering (in progress)
+
+Route chosen: extract the DUML command set from the DJI Fly APK.
+
+### What DJI Fly is
+
+- Package `dji.go.v5`, 705 MB `base.apk`. A **React Native** shell over
+  **546 MB of native libraries** (213 `.so` files).
+- The protocol/transport/video logic lives in **`libdjisdk_jni.so` (72 MB)** —
+  the DJI Mobile SDK core. Pure Java/dex decompilation would not reach it.
+
+### The key: the SDK keeps full C++ symbols
+
+`libdjisdk_jni.so` is **not stripped** of C++ symbols. Mining strings reveals
+the whole architecture:
+
+- Transport: `dji::core::AoaServicePort`, `AOARead` / `AOAWrite`,
+  `JNI_LoadUsbAccessory` — confirms mobile mode = USB AOA.
+- Live view: `ModuleMediator::StartLiveStreaming`, `PigeonLiveViewLogic`,
+  `SpecialCommandManager::RequestIFrameForLiveView`, `LIVEVIEW1..5`.
+
+### DUML commands are recoverable from the symbol table
+
+Every DUML command is a C++ template
+`dji::core::dji_cmd_base_req<type, cmd_set, cmd_id, req_struct, rsp_struct>`.
+The template parameters **are** the command constants, so the whole command
+dictionary can be read straight out of the demangled symbols. Video-relevant
+commands found so far:
+
+| cmd_set | cmd_id | command |
+|---------|--------|---------|
+| 0x08 | 0x78 | `dm368_set_sh_start_live_streaming` |
+| 0x08 | 0x79 | `dm368_get_sh_get_live_streaming_setting_info` |
+| 0x02 | 0x09 | `camera_set_liveview_source_camera` |
+| 0x02 | 0xB3 | `camera_get_app_request_i_frame` (request an I-frame) |
+| 0x02 | 0x4C | `camera_set_video_out_para` |
+| 0x02 | 0x4D | `camera_get_video_out_para` |
+| 0x02 | 0x18 | `camera_set_video_format` |
+| 0x02 | 0x02 | `camera_record_video` |
+
+`0x08:0x78 start_live_streaming` and `0x02:0xB3 request_i_frame` are the prime
+candidates for the video-start sequence.
+
+### Next
+
+1. Recover the `_req`/`_rsp` payload struct layouts for the candidate
+   commands (further symbol mining; Ghidra on `libdjisdk_jni.so` if needed —
+   the symbols make it navigable).
+2. Identify the AOA session-setup / handshake the SDK performs before
+   streaming.
+3. Assemble and test the start sequence — first on the Mac in OTG-computer
+   mode over IF4, watching IF3/5/6/7 for video.
