@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Python tooling (recon / capture scripts)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# USB / video captures — large binary research artifacts
+captures/
+*.pcap
+*.pcapng
+*.bin
+*.h264
+*.h265
+*.ts
