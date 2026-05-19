@@ -37,18 +37,42 @@ The N3 is driven over **DUML on IF4**. Video is enabled by sending the right
 DUML command on IF4, after which one of IF3/5/6/7 should begin streaming
 H.264/H.265. No RNDIS, no magic packet.
 
-## P2 — DUML (next)
+## P2 — DUML control (in progress)
 
 Goal: speak DUML on IF4 well enough to (a) complete whatever handshake the
 goggles expect and (b) issue the "start live video" command.
 
-Approach:
-1. Implement DUML framing (`0x55` start, 13-bit length, header CRC8, payload
-   CRC16, sender/receiver/seq/cmdset/cmdid).
-2. Parse the packets IF4 already emits — identify heartbeats vs. queries.
-3. **Reference capture:** record USB traffic between an Android device running
-   DJI Fly and the N3 to observe the exact DUML start sequence. This is the
-   reliable way to find the video-start command and host handshake.
-4. Replay/derive the start command; confirm a video channel (IF3/5/6/7) wakes.
+### DUML codec — done & validated
 
-References for DUML: `fvantienen/dji_rev`, `samuelsadok/dji_protocol`.
+[`duml.py`](duml.py) implements DUML framing and both CRCs (CRC-8 header,
+seed `0x77`; CRC-16 packet, seed `0x3692` — tables from
+`o-gs/dji-firmware-tools`). The frame layout:
+
+    0x55 | len/ver (u16 LE, 10-bit len + 6-bit ver) | crc8 |
+    sender | receiver | seq (u16 LE) | cmd_type | cmd_set | cmd_id |
+    payload | crc16 (u16 LE)
+
+Validated against live IF4 bytes via [`capture_duml.py`](capture_duml.py):
+every byte framed cleanly, 0 junk bytes, all CRCs pass.
+
+### Idle baseline (no air-unit feed)
+
+With the goggles connected but no air-unit video, IF4 emits exactly one
+message type, ~1 Hz:
+
+    cmd_set 0x00 / cmd_id 0x82   device 0xBC -> 0x2A   cmd_type 0x40
+    64-byte payload: "ZV300" + status (bytes 0x05 0x1C recur at off 32/40)
+
+This is the heartbeat. New message types appearing once the air unit is live
+(and during a phone session) are the ones to chase for video control.
+
+### Next
+
+1. Re-capture IF4 **with the air-unit feed live** and diff against this
+   baseline to spot video-related DUML.
+2. **Reference capture:** record an Android + DJI Fly session with the N3 to
+   observe the exact DUML start sequence DJI Fly issues.
+3. Derive/replay the start command; confirm a video channel (IF3/5/6/7) wakes.
+
+References for DUML command sets: `fvantienen/dji_rev`,
+`samuelsadok/dji_protocol`, `o-gs/dji-firmware-tools`.
