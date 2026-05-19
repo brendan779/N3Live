@@ -41,8 +41,20 @@ def opt(name: str, default: int) -> int:
     return default
 
 
+def positional(argv: list[str]) -> list[str]:
+    """Positional args only — skip each --flag *and its value*."""
+    pos, i = [], 0
+    while i < len(argv):
+        if argv[i].startswith("--"):
+            i += 2
+        else:
+            pos.append(argv[i])
+            i += 1
+    return pos
+
+
 def main() -> int:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    args = positional(sys.argv[1:])
     if len(args) < 2:
         print(__doc__)
         return 1

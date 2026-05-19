@@ -181,17 +181,57 @@ the reply, then checks IF3/5/6/7 for a woken video stream. This makes the
 payloads discoverable **empirically** — a NACK / length-error reply reveals
 the expected payload size far faster than static RE.
 
-## P4 — Drive the goggles (next; needs hardware)
+## P4 — Driving the goggles (hardware probing)
 
-With the air unit live and the goggles in OTG-computer mode:
+Probed with the air unit live and the goggles in OTG-computer mode, using
+`duml_send.py` and `duml_scan.py`.
 
-1. `duml_send.py 00 01` — `general_get_version`, a safe known command, to
-   confirm the goggles answer our DUML at all and learn the cmd_type /
-   address they expect.
-2. `duml_send.py 08 78`, `02 B3`, `08 76` … — probe the video-start
-   candidates; read NACK lengths to pin down payloads.
-3. Once a video interface wakes, capture the stream and confirm H.264/H.265
-   (Annex-B start codes).
+### Our DUML stack works
 
-If OTG-computer mode refuses to start video regardless of command, fall back
-to the Pi-bridge route (mobile-mode AOA — the proven video path).
+`duml_send.py 00 01` (`get_version` → `0xBC`) round-trips cleanly: reply
+`type=0xC0`, payload status `0x00`, ASCII `"zv300 gl Ver.02"`. Codec,
+addressing (`0x2A`↔`0xBC`), cmd_type `0x40`→`0xC0`, and seq echo all confirmed.
+
+### The whole DUML mesh is reachable
+
+`duml_scan.py` swept get_version across all 256 receiver addresses — **14
+modules answered**, so the goggles relay DUML across the wireless link to the
+aircraft:
+
+| addr | identity |
+|------|----------|
+| 0x09, 0x29 | `za530 uav` — the air unit |
+| 0x0E, 0x2E | `zv300_gls rc` |
+| 0x1C | `WM150 GL` |
+| 0x1F | `zv300 gl Ver.A` |
+| 0x3C, 0xBC | `zv300 gl Ver.02` — the goggles |
+| 0x59 | `bsp001` |
+| 0x6E | `zv300 gfsk v00` — the radio link |
+| 0x8E | `multi-type GND` |
+| 0x9C | (binary) |
+
+Address byte = `(index << 5) | type`.
+
+### But raw command firing does not start video
+
+- Functional commands (`08:78 start_live_streaming`, `08:75/79`,
+  `02:B3 request_i_frame`, `02:09`, `02:4D`) sent to `0xBC` → reply status
+  **`0xE0`** (rejected — the goggles module doesn't implement them).
+- The same commands sent to `0x09` (the air unit) → **no reply at all**.
+- No video interface (IF3/5/6/7) ever woke.
+
+### Conclusion / next
+
+`get_version` works everywhere because every DUML node answers it. The
+functional commands need more than a raw frame — the SDK performs a
+**session/registration handshake** and routes each command to a specific
+module/sub-address. Reconstructing that is the next target:
+
+1. Ghidra pass on `libdjisdk_jni.so` — trace `PigeonLiveViewLogic::Start` /
+   `ModuleMediator::StartLiveStreaming` to recover the exact command order,
+   target addresses and payloads.
+2. Or capture a real DJI Fly session (Pi-bridge / hardware sniffer) to
+   observe the sequence directly.
+
+The Mac-direct path is **not** ruled out — the air unit is reachable from the
+Mac; we just need the correct command sequence.
