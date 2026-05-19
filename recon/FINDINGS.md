@@ -160,12 +160,38 @@ Implication: in mobile mode there is a framing/channel layer above DUML to
 demux control vs. video. OTG-computer mode instead gives physically separate
 interfaces (IF4 control, IF3/5/6/7 dormant) — simpler, and the Mac's path.
 
-### Next
+### Payload structs — partial
 
-1. Recover the `_req`/`_rsp` payload struct layouts for the candidate
-   commands (further symbol mining; Ghidra on `libdjisdk_jni.so` if needed —
-   the symbols make it navigable).
-2. Identify the AOA session-setup / handshake the SDK performs before
-   streaming.
-3. Assemble and test the start sequence — first on the Mac in OTG-computer
-   mode over IF4, watching IF3/5/6/7 for video.
+Exact `_req` byte layouts live in compiled code, not symbols, so full static
+recovery needs Ghidra on `libdjisdk_jni.so`. What symbols/strings do show:
+
+- The dm368 (cmd_set 0x08) commands negotiate the **decoder side** — decode
+  capability, max framerate, ground-side params: the receiver tells the air
+  unit what it can decode. `08:78 start_live_streaming` likely carries a
+  small option payload (a `LiveStreamingSettings`-shaped struct).
+- `02:B3 get_app_request_i_frame` is a request — likely empty or 1 byte —
+  that prompts the camera to emit a keyframe.
+- `JNI_SetLiveStreamParam` takes a raw `byte[]` — the live-stream config is
+  passed through as opaque bytes.
+
+### Probing tool — duml_send.py
+
+[`duml_send.py`](duml_send.py) sends an arbitrary DUML command on IF4, reads
+the reply, then checks IF3/5/6/7 for a woken video stream. This makes the
+payloads discoverable **empirically** — a NACK / length-error reply reveals
+the expected payload size far faster than static RE.
+
+## P4 — Drive the goggles (next; needs hardware)
+
+With the air unit live and the goggles in OTG-computer mode:
+
+1. `duml_send.py 00 01` — `general_get_version`, a safe known command, to
+   confirm the goggles answer our DUML at all and learn the cmd_type /
+   address they expect.
+2. `duml_send.py 08 78`, `02 B3`, `08 76` … — probe the video-start
+   candidates; read NACK lengths to pin down payloads.
+3. Once a video interface wakes, capture the stream and confirm H.264/H.265
+   (Annex-B start codes).
+
+If OTG-computer mode refuses to start video regardless of command, fall back
+to the Pi-bridge route (mobile-mode AOA — the proven video path).
